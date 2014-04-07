@@ -1,0 +1,80 @@
+#!/bin/bash
+nyaasite="http://www.nyaa.se"
+# would be used with curl -A but w/e nyaa doesn't care
+nyaaua="Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101230 Firefox/3.6.13"
+nyaacjar=~/nyaacookie.txt
+nyaauser="lae"
+nyaapass=""
+
+ariachunks=16
+
+tag="sleep coma? stop being a pig"
+desc=""
+
+prepared_video=""
+prepared_torrent=""
+
+downloadgundam() {
+    temp=gundam_$(date +%s).mp4
+    aria2c "${2## }" -o "$temp" -x $ariachunks
+    epnum=$1
+    if test $? -ne 0; then
+        echo -e "\033[1;31mCould not download source video.\033[0m"
+        exit 1
+    fi
+    premux=$temp
+}
+
+muxgundam() {
+    mkvmerge --split parts-frames:$splits -o "${premux%%.mp4}.mkv" $premux
+    crc=$(rhash -Cp "%C" "${premux%%.mp4}.mkv")
+    new="[$tag] GUNDAM BUILD FIGHTERS - $epnum [720p][$crc].mkv"
+    mv -v "${premux%%.mp4}.mkv" "$new"
+    prepared_video=$new
+}
+
+localgundam() {
+    ln -s "$PWD/$premux" "/home/lae/milk.tea.jp/$premux" -v
+    echo "http://milk.tea.jp/$premux"
+    read -p "What parts-frames to split at? " splits
+    rm "/home/lae/milk.tea.jp/$premux"
+}
+
+makegundam() {
+    torrent="${1%%.mkv}.torrent"
+    mktorrent -a http://open.nyaatorrents.info:6544/announce -p -o "$torrent" "$1"
+    prepared_torrent=$torrent
+}
+
+nyaalogin() {
+    curl -s "$nyaasite/?page=login" -d "method=1" -d "login=$nyaauser" -d "password=$nyaapass" -c $nyaacjar -o /dev/null
+    if [ "x$(curl -I -s "$nyaasite/?page=profile" -b $nyaacjar | head -1 | cut -d' ' -f2)" != "x200" ]; then
+        echo -e "\033[1;31mCould not login to Nyaa.\033[0m";
+        exit 1;
+    fi
+    echo -e "\033[0;32mLogged into Nyaa successfully.\033[0m";
+}
+
+uploadnyaa() {
+    uploaded=$(curl -s "$nyaasite/?page=upload" -F name="$2" -F "torrent=@$1;type=application/x-bittorrent" -F torrenturl="" -F catid="1_37" -F info="" -F anonymous="0" -F description="$desc" -F rules="1" -F submit="Upload" -b $nyaacjar)
+    if test $? -ne 0; then
+        echo -e "\033[1;31mCould not upload torrent.\033[0m"
+        echo $uploaded
+        echo $prepared_torrent
+        echo $prepared_video
+        exit 1
+    fi
+    echo -e "\033[0;32mSuccessfully uploaded torrent to Nyaa at:\033[0m"
+    echo "$uploaded" | grep -oP '(?<=torrent list shortly hereafter. <a href=").*?(?=">View your torrent.</a>)' | perl -pe 's/&#38;/&/'
+ #| grep -oP '(?<= <a href=").*?(?=">View your torrent)') | sed -r 's/\&(amp|#38)\;/\&/'
+}
+
+downloadgundam "$@"
+localgundam "$video"
+muxgundam
+makegundam "$prepared_video"
+nyaalogin
+uploadnyaa "$prepared_torrent" "$prepared_video"
+
+mv -v "$prepared_video" "/home/lae/"
+mv "$prepared_torrent" /home/lae/.rtorrent/torrents/
