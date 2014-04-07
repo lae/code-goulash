@@ -1,0 +1,40 @@
+#!/bin/bash
+
+if [ -z $1 ]; then
+  echo "You didn't give a screenshot name! "
+  exit 1
+elif [ "$1" == "random" ]; then
+  str=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 6 | head -n1)
+elif [ "$1" == "randomtmp" ]; then
+  str=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 6 | head -n1)
+else
+  str=$1
+fi
+
+if [ -z $2 ]; then
+  delay=0
+else
+  delay=$2
+fi
+
+if [ -z $4 ]; then
+  ext=png
+else
+  ext=$4
+fi
+
+if [ "$3" == "1" ]; then
+  sleep $delay
+  scrot -s $HOME/screenshots/$str.$ext
+else
+  scrot -cd $delay $HOME/screenshots/$str.$ext
+fi
+
+if [ "$5" == "1" ]; then
+  gimp $HOME/screenshots/$str.$ext
+fi
+if [ "$1" == "randomtmp" ]; then
+  kmjp $HOME/screenshots/$str.$ext tmp
+else
+  kmjp $HOME/screenshots/$str.$ext
+fi

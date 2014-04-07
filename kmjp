@@ -1,0 +1,52 @@
+#!/bin/bash
+
+KEY=$HOME/.ssh/kmjp-upload
+
+quit() { echo "$2"; touch /tmp/kmjp-err; /bin/rm /tmp/kmjp-err; exit $1; }
+
+#Silly sh-ers.
+if [ ! "$SHELL" == "/bin/bash" ]; then quit 1 "You need to use bash."; fi
+
+#Check for curl or wget
+type -P wget &> /dev/null && dl="wget -qO -" || { type -P curl &> /dev/null && dl="curl -s" || quit 1 "Could not find wget nor curl. Please install either one."; }
+
+if [ -z "$1" ]; then
+  quit 70 "You didn't specify a file, so nothing to upload."
+elif [ ! -f "$1" ]; then
+  quit 1 "'$1' is not a file, so nothing to upload."
+else
+  if [ "$2" == "random" ]; then
+    str=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 6 | head -n1)
+    ext=${1##*.}
+    f=$str.$ext
+    src=/tmp/$f
+    cp "$1" "$src"
+    echo "Uploading '$1' as '$f'..."
+  else
+    if [ "$2" == "tmp" ]; then
+      mv "$1" "$1.tmp"
+      tmp=1
+      src="$1.tmp"
+      f=$(basename "$1").tmp
+    else
+      src=$1
+      f=$(basename "$1")
+    fi
+    echo "Uploading '$1'..."
+  fi
+  type -P scp &> /dev/null || quit 1 "Could not find scp binary. Please install OpenSSH."
+  scp -P71 -i $KEY "$src" lae@milk.tea.jp:"$f" 2>/tmp/kmjp-err
+  if [ $? -eq 1 ]; then
+    quit 1 "$(cat /tmp/kmjp-err)"
+  else
+    echo "Success! Uploaded file can be found at:"
+    if [ x$tmp == x1 ]; then
+      mv "$1.tmp" "$1"
+      quit 0 "http://milk.tea.jp/tmp/${f%.tmp}"
+    elif [ x${f##*.} == xpng ] || [ x${f##*.} == xjpg ]; then
+      quit 0 "http://milk.tea.jp/i/$f"
+    else
+      quit 0 "http://milk.tea.jp/p/$f"
+    fi
+  fi
+fi
