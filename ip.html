@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" data-ng-app="IP">
+  <head>
+    <title>GeoIP Lookup</title>
+    <link rel="stylesheet" href="//yui.yahooapis.com/pure/0.3.0/pure-min.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      #json, a { color: #cb1b45; }
+      #map-canvas { position: absolute; width: 100%;  height: 100%; }
+      #h { position: absolute; right: 16px; bottom: 16px; z-index: 400; }
+      #h > * { margin: 0 0 0 16px; }
+      #h pre { opacity: 0.8; }
+      #h h1 {
+        background: #2f2f2f;
+        color: white;
+        padding: 0.4em 0.8em;
+        font-size: 0.85em;
+        font-weight: 400;
+      }
+      #h pre {
+        background: #f5f5f5;
+        font-size: 0.8em;
+        line-height: 1.4em;
+        padding: 9.5px;
+      }
+      #h form {
+        padding: 2px 12px;
+        background: white;
+        border-bottom: 2px solid #3f3f3f;
+      }
+      #h form input { font-size: 0.9em; width: 100%; border: 0; }
+      #h p {
+        background: #e7e7e7;
+        padding: 4px 10px;
+        font-size: 0.8em;
+        border-top: 2px solid #3f3f3f;
+      }
+    </style>
+    <meta charset="utf-8" />
+  </head>
+  <body>
+    <div data-ui-view></div>
+    <script type="text/ng-template" id="tpl/lookup.html">
+      <div id="h">
+        <h1>About this kludge</h1>
+        <pre>Inspired by <a href="http://paulshi.me">Paul Shi's</a> <a href="https://iplook.herokuapp.com">IP Lookup</a> app, I decided
+to write a one-off <a href="http://angularjs.org">Angular.js</a> implementation.
+This is a self-contained webapp, just curl -s it.
+                                          - lae
+<a href="https://github.com/liliff">Github</a> - <a href="http://twitter.com/sleepingkyoto">@sleepingkyoto</a>
+
+$ wc ip/ip.html 
+ 126  416 5058 ip/ip.html</pre>
+        <h1>IP Information</h1>
+        <pre><code id="json">{{ pretty_response }}</code></pre>
+        <p>Lookup an IP or domain below.</p>
+        <form no-validate ng-submit="requestLookup()"><input type="text" ng-model="entry" /></form>
+      </div>
+      <div id="map-canvas"></div>
+    </script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.1/angular.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular-ui-router/0.2.0/angular-ui-router.js"></script>
+    <script src="//maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+    <script>
+'use strict'
+angular.module('IP', ['ui.router'])
+  .factory('Lookup', ['$http',
+    function($http) {
+      return {
+        retrieve: function(search) {
+          return $http.get('http://ip-api.com/json/' + search);
+        },
+        notInitial: false
+      }
+    }])
+  .controller('IPCtrl', ['$scope', '$rootScope', '$state', '$stateParams', 'IPInfo',
+    function($scope, $rootScope, $state, $stateParams, IPInfo, Piwik) {
+      var lookup = IPInfo.data;
+      $scope.entry = $stateParams.search;
+      $scope.pretty_response = JSON.stringify(lookup, null, 2);
+      $scope.styles = [
+        {featureType: 'water', elementType: 'all', stylers: [{hue: '#73b5e6'}, {saturation: 45}, {lightness: -11}, {visibility: 'on'}]},
+        {featureType: 'landscape.natural', elementType: 'all', stylers: [{hue: '#f6f7f6'}, {saturation: -61}, {lightness: 33}, {visibility: 'on'}]},
+        {featureType: 'landscape.man_made', elementType: 'all', stylers: [{hue: '#dfe1e0'}, {saturation: -88}, {lightness: -1}, {visibility: 'on'}]},
+        {featureType: 'poi', elementType: 'all', stylers: [{hue: '#dfe1e0'}, {saturation: -92}, {lightness: 45}, {visibility: 'on'}]},
+        {featureType: 'road', elementType: 'all', stylers: [{hue: '#bfbfbf'}, {saturation: -100}, {lightness: 30}, {visibility: 'on'}]}
+      ];
+      if(parseFloat(lookup.lon)){
+        $scope.center = new google.maps.LatLng(lookup.lat, lookup.lon);
+        var mapOptions = {
+          zoom: 12,
+          center: $scope.center,
+          mapTypeControlOptions: {
+            mapTypeIds: ['Styled']
+          },
+          mapTypeId: 'Styled',
+          streetViewControl: false
+        };
+        $scope.map = new google.maps.Map(document.getElementById("map-canvas"), mapOptions);
+        var styledMapType = new google.maps.StyledMapType($scope.styles, {name:""});
+        $scope.map.mapTypes.set('Styled', styledMapType);
+        $scope.marker = new google.maps.Marker({
+          position: $scope.center,
+          map: $scope.map,
+          animation: google.maps.Animation.DROP
+        });
+      }
+      $scope.requestLookup = function() {
+        $state.go('lookup', {search: ''+$scope.entry});
+      }
+    }])
+  .config([
+    '$stateProvider', '$urlRouterProvider',
+    function($stateProvider, $urlRouterProvider) {
+      $urlRouterProvider.otherwise('/');
+      $stateProvider
+        .state('lookup', {
+          url: '/{search:.*}',
+          templateUrl: 'tpl/lookup.html',
+          resolve: { IPInfo: ['Lookup', '$stateParams', function(Lookup, $stateParams){ return Lookup.retrieve($stateParams.search); }]},
+          controller: 'IPCtrl'
+        })
+    }])
+    </script>
+  </body>
+</html
