@@ -15,9 +15,10 @@ Add a libvirt hook to automatically run it on VM launch by editing
 #!/bin/bash 
 if [[ $1 == "windows" ]] && [[ $2 == "start" ]]
 then
-  su - $USER -c "tmux new -d 'DISPLAY=:0 /home/$USER/bin/mws2vddgpupt DP-2 windows'"
+  su - <USER> -c "tmux new -d 'DISPLAY=:0 /home/<USER>/bin/mws2vddgpupt DP-2 windows'"
 fi
 ```
 
+Replace `<USER>` with your desktop user (and change the path to the binary).
 (This will start a tmux session and run the script, so that your VM doesn't
 wait for the program to quit before starting.)
