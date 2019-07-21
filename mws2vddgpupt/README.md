@@ -18,3 +18,6 @@ then
   su - $USER -c "tmux new -d 'DISPLAY=:0 /home/$USER/bin/mws2vddgpupt DP-2 windows'"
 fi
 ```
+
+(This will start a tmux session and run the script, so that your VM doesn't
+wait for the program to quit before starting.)
