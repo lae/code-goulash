@@ -20,10 +20,12 @@ fn main() {
         (about: "Disables a display while a libvirt domain (virtual machine) is active.")
         (@arg DISPLAY: +required "Display ID from XRandR to disable.")
         (@arg DOMAIN: +required "Libvirt domain to watch for shutdown before reactivating screen.")
+        (@arg delay: -d +takes_value "Seconds to wait before disabling display. (to allow time for VM to activate screen)")
     ).get_matches();
 
     let display_id = cli.value_of("DISPLAY").unwrap();
     let domain = cli.value_of("DOMAIN").unwrap();
+    let delay = cli.value_of("delay").unwrap_or("0").parse::<u64>().unwrap();
 
     let check_interval = time::Duration::new(1, 0);
 
@@ -32,6 +34,11 @@ fn main() {
         thread::sleep(check_interval);
     }
     spinner.finish();
+
+    if delay > 0 {
+        println!("Waiting {} seconds for VM to boot and use display before disabling.", delay);
+        thread::sleep(time::Duration::new(delay, 0));
+    }
 
     let mut connection = i3ipc::I3Connection::connect().unwrap();
     let ws_reply = connection.get_workspaces().unwrap();
